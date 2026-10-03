@@ -67,8 +67,9 @@ paths to `matrix` using the `CACHIX_AUTH_TOKEN` Actions secret, which must conta
 a write token for that cache. Fork pull requests read the public cache without
 uploading. Protect `main` by requiring pull requests and the successful `Nix build`
 check, including for administrators; force pushes and branch deletion are blocked.
-The weekly lock updater opens a pull request and explicitly dispatches its build,
-since pull requests created with `GITHUB_TOKEN` do not trigger another workflow.
+The weekly lock updater opens a pull request, explicitly dispatches its build,
+and enables squash auto-merge after the required build passes. Pull requests
+created with `GITHUB_TOKEN` do not trigger another workflow automatically.
 
 Add the flake as an input:
 
