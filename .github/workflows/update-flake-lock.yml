@@ -3,30 +3,43 @@ name: update flake lock
 on:
   workflow_dispatch:
   schedule:
-    # Weekly, Monday 04:17 UTC — keeps the pinned inputs
-    # (sls-steam, cloudredirect, moon, lumen, luatools-moon, steamnetsock,
-    # steamidra, accela, millennium, nixpkgs) following upstream releases.
+    # Weekly, Monday at 04:17 UTC.
     - cron: "17 4 * * 1"
 
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
+
+concurrency:
+  group: update-flake-lock
+  cancel-in-progress: false
 
 jobs:
   update:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Install Nix
-        uses: DeterminateSystems/nix-installer-action@v16
-      - name: Update flake.lock
-        uses: DeterminateSystems/update-flake-lock@v24
+      - name: Checkout default branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          pr-title: "flake.lock: update inputs"
-          pr-body: |
-            Automated weekly flake.lock refresh.
-
-            CI runs `nix flake check` on this PR, so the updated inputs are
-            validated before merge. Millennium may be bumped too — its own
-            nested nixpkgs pin is internal and does not change.
+          ref: ${{ github.event.repository.default_branch }}
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa # v23
+      - name: Update flake.lock
+        run: nix flake update --refresh
+      - name: Check updated flake
+        run: nix flake check --no-write-lock-file
+      - name: Commit and push updated lock
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          if git diff --quiet -- flake.lock; then
+            echo "Flake inputs are already up to date."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add flake.lock
+          git commit -m "chore(flake): update inputs"
+          git push origin "HEAD:${DEFAULT_BRANCH}"

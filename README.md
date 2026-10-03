@@ -127,10 +127,14 @@ nix flake update
 sudo nixos-rebuild switch   # or: home-manager switch
 ```
 
-This repository also runs the [update-flake-lock](https://github.com/DeterminateSystems/update-flake-lock)
-GitHub Action (weekly + manual dispatch): it opens a pull request with a refreshed `flake.lock`,
-which CI then validates with `nix flake check` before merge. If you host your own copy, the same
-action keeps the `nix-crab` input current on your side.
+The `update flake lock` GitHub Actions workflow runs every Monday at 04:17 UTC and supports
+manual dispatch. It refreshes all inputs with `nix flake update --refresh`, validates them with
+`nix flake check --no-write-lock-file`, and commits the updated `flake.lock` directly to the
+default branch. It makes no commit when the lock is unchanged. The workflow uses the repository's
+`GITHUB_TOKEN` with permission to write contents; no extra secret is required.
+
+Configurations consuming this fork still need to update their own `nix-crab` input to pick up
+these commits.
 
 That is all. SLSsteam, CloudRedirect, netsock and the CloudRedirect CLI all track their upstream
 releases through the locked inputs. The Steam client updates itself on next launch.
