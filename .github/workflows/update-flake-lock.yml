@@ -48,3 +48,9 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh workflow run flake.yml --ref chore/update-flake-lock
+      - name: Enable auto-merge for lock update
+        if: steps.pull-request.outputs.pull-request-number != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ steps.pull-request.outputs.pull-request-number }}
+        run: gh pr merge "$PR_NUMBER" --auto --squash
