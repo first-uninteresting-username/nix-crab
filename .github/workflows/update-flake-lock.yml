@@ -19,6 +19,8 @@ jobs:
     timeout-minutes: 30
     permissions:
       contents: write
+      pull-requests: write
+      actions: write
     steps:
       - name: Checkout default branch
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -29,17 +31,20 @@ jobs:
       - name: Update flake.lock
         run: nix flake update --refresh
       - name: Check updated flake
-        run: nix flake check --no-write-lock-file
-      - name: Commit and push updated lock
+        run: nix flake check --accept-flake-config --no-build --no-write-lock-file
+      - name: Open lock update pull request
+        id: pull-request
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: chore/update-flake-lock
+          delete-branch: true
+          add-paths: flake.lock
+          commit-message: "chore(flake): update inputs"
+          title: "chore(flake): update inputs"
+          body: "Update the pinned flake inputs. The Nix build must pass before merging."
+      - name: Build lock update branch
+        if: steps.pull-request.outputs.pull-request-operation == 'created' || steps.pull-request.outputs.pull-request-operation == 'updated'
         env:
-          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
-        run: |
-          if git diff --quiet -- flake.lock; then
-            echo "Flake inputs are already up to date."
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add flake.lock
-          git commit -m "chore(flake): update inputs"
-          git push origin "HEAD:${DEFAULT_BRANCH}"
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh workflow run flake.yml --ref chore/update-flake-lock

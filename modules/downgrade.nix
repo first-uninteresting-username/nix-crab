@@ -3,47 +3,47 @@
   lib,
   pkgs,
   ...
-}:
-let
+}: let
   mkBin = {
     name,
     url,
     hash,
-  }: pkgs.stdenv.mkDerivation {
-    inherit name;
-    src = pkgs.fetchurl {
-      inherit url;
-      sha256 = hash;
+  }:
+    pkgs.stdenv.mkDerivation {
+      inherit name;
+      src = pkgs.fetchurl {
+        inherit url;
+        sha256 = hash;
+      };
+      dontUnpack = true;
+      dontConfigure = true;
+      dontBuild = true;
+      installPhase = ''
+        runHook preInstall
+        install -Dm755 "$src" "$out/bin/${name}"
+        runHook postInstall
+      '';
     };
-    dontUnpack = true;
-    dontConfigure = true;
-    dontBuild = true;
-    installPhase = ''
-      runHook preInstall
-      install -Dm755 "$src" "$out/bin/${name}"
-      runHook postInstall
-    '';
-  };
 
   dgsc = mkBin {
     name = "nix-crab-dgsc";
-    url = "https://github.com/Deadboy666/h3adcr-b-modul3s/raw/refs/heads/main/dgsc";
+    url = "https://raw.githubusercontent.com/Deadboy666/h3adcr-b-modul3s/73ceaa84411d847acfd49a33c359e62eee636a06/dgsc";
     hash = "sha256-CJUdjpmNl9xKNcuTdsiIuY+l37Pb8D0vyWKZQD/QBCI=";
   };
 
   dlm = mkBin {
     name = "nix-crab-dlm";
-    url = "https://github.com/Deadboy666/h3adcr-b-modul3s/raw/refs/heads/main/dlm";
+    url = "https://raw.githubusercontent.com/Deadboy666/h3adcr-b-modul3s/73ceaa84411d847acfd49a33c359e62eee636a06/dlm";
     hash = "sha256-ly66uMEsDEfvfTn5geCKMzovEfrmlWqzuTZlORecdxQ=";
   };
 
   sources = pkgs.fetchurl {
-    url = "https://raw.githubusercontent.com/Deadboy666/h3adcr-b-modul3s/main/sources.txt";
+    url = "https://raw.githubusercontent.com/Deadboy666/h3adcr-b-modul3s/2b7198aa2290b429c3531fd565e48969fecb9ccc/sources.txt";
     sha256 = "sha256-Nk4F4fUrEWkfP01Ui7R+O3YERjnwHXy0L8jLDHJkjZA=";
   };
 
   clientManifest = pkgs.fetchurl {
-    url = "https://raw.githubusercontent.com/Deadboy666/SteamTracking/refs/heads/headcrab/ClientManifest/steam_client_ubuntu12";
+    url = "https://raw.githubusercontent.com/Deadboy666/SteamTracking/6e8b44c505d5d83095e29229a6952c4369b961f2/ClientManifest/steam_client_ubuntu12";
     sha256 = "sha256-jIU3nP16Kk7wLlttO3kXbV+xA5pKIQKo+7FIYfUMQwc=";
   };
 
