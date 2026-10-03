@@ -1,7 +1,18 @@
 {
   description = "Flake for h3adcr-b on NixOS";
 
+  nixConfig = {
+    extra-substituters = ["https://matrix.cachix.org"];
+    extra-trusted-public-keys = [
+      "matrix.cachix.org-1:uZWavEIj0/oIRHPjh+OG586y4nXBlyI0xkYfZBfDx7w="
+    ];
+  };
+
   inputs = {
+    home-manager = {
+      url = "github:nix-community/home-manager";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
     accela = {
       type = "file";
       # Enter The Wired's bundle, which ships the AppImage. Versionless URL, so
@@ -79,6 +90,7 @@
     cloudredirect,
     cloudredirect-moon,
     cloudredirect-cli,
+    home-manager,
     millennium,
     nix-flatpak,
     nixpkgs,
@@ -90,6 +102,10 @@
     steamidra,
     steamnetsock,
   }: {
+    checks.x86_64-linux = import ./checks.nix {
+      inherit self nixpkgs home-manager;
+    };
+
     nixosModules.default = {
       imports = [
         (import ./modules/millennium.nix {inherit millennium;})

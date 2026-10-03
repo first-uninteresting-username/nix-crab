@@ -23,14 +23,14 @@ Modules are partial applications: `flake.nix` threads flake inputs in via `(impo
 
 ## Verification
 
-- `nix flake check` in repo root — passes when outputs are valid.
+- `nix flake check --accept-flake-config --no-write-lock-file` in repo root — evaluates and builds the NixOS Steam variants and Home Manager activation packages in `checks.nix`, using the `matrix` Cachix cache. Add `--no-build` for evaluation only.
 - Test harness at `/tmp/opencode/nixcrab-test` (out-of-repo): a flake with `nixosSystem` importing `nixosModules.default` + `homeManagerConfiguration` importing `homeModules.default`. Used to actually evaluate/build both sides (needs `nixpkgs.config.allowUnfree = true` for steam). Re-lock after changing the repo (`rm flake.lock && nix flake lock`), otherwise you get `NAR hash mismatch` for the path input.
 - Deep home-manager evals (`config.home-manager.users.<u>.<attr>`) can trip a benign upstream `accounts.calendar.basePath` error; don't chase it.
 
 ## Gotchas
 
 - **Path-input narHash**: the user's `~/dotfiles` consumes this via `path:/home/finn/Projects/nix-crab`. After editing here, their `flake.lock` must be updated (`nix flake lock --update-input nix-crab`), otherwise `nh`/`nixos-rebuild` fails with a NAR hash mismatch.
-- `downgrade.nix` pins SRI hashes for dgsc/dlm/sources.txt/clientManifest — update them when those upstream files change.
+- `downgrade.nix` pins immutable upstream revisions and SRI hashes for dgsc/dlm/sources.txt/clientManifest. The binaries were removed from upstream's main branch; keep the historical URLs. Update revisions and hashes together when deliberately changing the downgrade target.
 - **The `steamidra` input is `api.github.com/repos/Midrags/SFF/tags`, not `releases/latest`** — the releases JSON embeds per-asset download counters, so its narHash changes within the hour and every eval after the tarball TTL dies with `mismatch in field 'narHash'`. Do not pin `narHash` in `flake.nix` either; that makes the same breakage permanent. `/tags` only changes on a new tag, and the newest tag is the first element.
 - **SteaMidra's AppImage is downloaded by the launcher at runtime, not by Nix** — there is no versionless asset URL (`releases/latest/download/SteaMidra-linux.zip` is a 404), so a Nix fetch would need a hand-bumped SRI hash per release, which the user rejected. The flake input supplies the version, the launcher unpacks that version into `~/.local/share/SteaMidra/` and runs it via `appimage-run`. Do not reintroduce `fetchurl` + hash or `appimageTools.wrapType2`.
 - **The `accela` input is Enter The Wired's `deps.tar.gz`, not upstream ACCELA.** `froster01/ACCELA` publishes no releases and no tags, and its tree cannot live in the store anyway (chdirs into itself, opens `app.log` with `mode="w"`, resolves assets relative to cwd). The Enter The Wired asset URL is versionless, so this one is a plain flake input with the AppImage in the store — no tag-list indirection, no runtime download.

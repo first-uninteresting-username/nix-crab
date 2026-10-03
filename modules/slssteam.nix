@@ -19,11 +19,22 @@
     pname = "slsteam-moon";
     version = "0.0.0";
     src = slsteam-moon;
+    # utils.hpp uses fixed-width integers before utils.cpp includes cstdint.
+    # GCC 15 no longer supplies those declarations through other headers.
+    postPatch = ''
+      substituteInPlace src/utils.hpp \
+        --replace-fail '#pragma once' '#pragma once
+      #include <cstdint>'
+    '';
     nativeBuildInputs = with pkgs; [pkg-config];
     buildInputs = with pkgs.pkgsi686Linux; [openssl curl];
     # pattern-refresh is a native host helper we don't need; only the two
     # Steam-loaded i386 objects are injected.
-    buildPhase = "make bin/SLSsteam.so bin/library-inject.so";
+    buildPhase = ''
+      runHook preBuild
+      make -j"$NIX_BUILD_CORES" bin/SLSsteam.so bin/library-inject.so
+      runHook postBuild
+    '';
     # -O3 -flto over ~100 translation units; the Makefile only marks `clean`
     # and `rebuild` as .NOTPARALLEL, so the object targets take -j fine.
     enableParallelBuilding = true;
