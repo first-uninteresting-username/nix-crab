@@ -1,6 +1,5 @@
 {
   sls-steam,
-  nix-flatpak,
   steamnetsock,
   cloudredirect,
   cloudredirect-moon,
@@ -11,8 +10,6 @@
   config,
   ...
 }: let
-  slssteamPkg = sls-steam.packages.${pkgs.stdenv.hostPlatform.system}.sls-steam;
-
   cloudredirectCli = pkgs.stdenv.mkDerivation {
     pname = "cloud_redirect_cli";
     version = "0.0.0";
@@ -23,6 +20,7 @@
     installPhase = ''
       runHook preInstall
       install -Dm755 "$src" "$out/bin/cloud_redirect_cli"
+      install -Dm444 ${cloudredirect} "$out/bin/cloud_redirect.so"
       runHook postInstall
     '';
   };
@@ -135,9 +133,7 @@
       esac
     fi
     CR_CLI=0
-    [ -x "$HOME/.local/share/CloudRedirect/cloud_redirect_lib" ] && CR_CLI=1
-    CR_FLATPAK=0
-    [ -d "$HOME/.local/share/flatpak/app/org.cloudredirect.CloudRedirect" ] && CR_FLATPAK=1
+    [ -x "$HOME/.local/share/CloudRedirect/cloud_redirect_cli" ] && CR_CLI=1
 
     # -- LuaTools / Lumen ----------------------------------------------------
     L_INSTALLED=0
@@ -162,8 +158,8 @@
       printf '"injection":%s,' "$(json_str "$INJECTION")"
       printf '"games":{"stplug_in_dir":%s,"lua_manifests":%s,"luaappids_yaml":%s},' \
         "$(json_str "$STPLUG")" "$LUA_COUNT" "$(json_bool "$LUAAPPIDS")"
-      printf '"cloudredirect":{"enabled":%s,"hook":%s,"cli_present":%s,"flatpak_installed":%s},' \
-        "$(json_bool "$CR_ENABLED")" "$(json_str "$CR_HOOK")" "$(json_bool "$CR_CLI")" "$(json_bool "$CR_FLATPAK")"
+      printf '"cloudredirect":{"enabled":%s,"hook":%s,"cli_present":%s},' \
+        "$(json_bool "$CR_ENABLED")" "$(json_str "$CR_HOOK")" "$(json_bool "$CR_CLI")"
       printf '"luatools":{"installed":%s,"plugin_installed":%s,"running":%s,"cef_port":%s}' \
         "$(json_bool "$L_INSTALLED")" "$(json_bool "$L_PLUGIN")" "$(json_bool "$L_RUNNING")" "$(json_bool "$L_CEFPORT")"
       printf '}\n'
@@ -217,7 +213,6 @@
     fi
     echo "Hook:           $CR_HOOK"
     echo "CLI:            $([ "$CR_CLI" = 1 ] && echo present || echo missing)"
-    echo "Flatpak:        $([ "$CR_FLATPAK" = 1 ] && echo installed || echo not installed)"
 
     echo
     echo "=== LuaTools / Lumen ==="
@@ -279,7 +274,6 @@
 in {
   imports = [
     sls-steam.homeModules.sls-steam
-    nix-flatpak.homeManagerModules.nix-flatpak
   ];
 
   options.programs.nix-crab.slssteam.manageConfig = lib.mkOption {
@@ -334,45 +328,9 @@ in {
     xdg.configFile."SLSsteam/config.yaml".enable =
       config.programs.nix-crab.slssteam.manageConfig;
 
-    services.flatpak = {
-      packages = [
-        {
-          appId = "org.cloudredirect.CloudRedirect";
-          origin = "cloudredirect";
-        }
-      ];
-      # The app's SLSsteam check follows ~/.local/share/SLSsteam/SLSsteam.so
-      # (see home.file below) into the Nix store, so the sandbox has to see the
-      # store — with only filesystems=home that symlink is dangling inside the
-      # Flatpak and the check fails.
-      overrides.settings."org.cloudredirect.CloudRedirect".Context.filesystems = [
-        "/nix/store:ro"
-      ];
-      remotes = [
-        {
-          name = "flathub";
-          location = "https://dl.flathub.org/repo/flathub.flatpakrepo";
-        }
-        {
-          name = "cloudredirect";
-          location = "https://raw.githubusercontent.com/Selectively11/CloudRedirect/refs/heads/gh-pages/cloudredirect.flatpakrepo";
-        }
-      ];
-    };
-
     home.file = {
       ".config/SLSsteam/tools/netsock/netsock.so".source = steamnetsock;
-      # The CloudRedirect app's prerequisite check stats
-      # $XDG_DATA_HOME/SLSsteam/SLSsteam.so (the imperative h3adcr-b layout).
-      # Nix keeps SLSsteam in the store, so without this link the app shows
-      # "SLSsteam: Not found" and refuses to deploy/update.
-      ".local/share/SLSsteam/SLSsteam.so".source = "${slssteamPkg}/SLSsteam.so";
-      ".local/share/CloudRedirect/cloud_redirect_lib".source =
-        "${cloudredirectCli}/bin/cloud_redirect_cli";
-      # Same deal for CloudRedirect's own deploy check: it stats
-      # $XDG_DATA_HOME/CloudRedirect/cloud_redirect.so and reports "failed to
-      # deploy" without it. Follow the same hook choice as the LD_PRELOAD in
-      # modules/cloudredirect.nix so the app's status matches what is injected.
+      ".local/share/CloudRedirect/cloud_redirect_cli".source = "${cloudredirectCli}/bin/cloud_redirect_cli";
       ".local/share/CloudRedirect/cloud_redirect.so".source =
         if config.programs.nix-crab.cloudredirect.moon.enable
         then "${cloudredirect-moon}/cloud_redirect.so"

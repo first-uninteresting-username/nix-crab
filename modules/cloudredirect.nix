@@ -18,7 +18,6 @@
   };
 
   config = lib.mkIf config.programs.nix-crab.cloudredirect.enable {
-    services.flatpak.enable = true;
     programs.nix-crab.slssteam.extraEnv.LD_PRELOAD =
       if config.programs.nix-crab.cloudredirect.moon.enable
       then "${cloudredirect-moon}/cloud_redirect.so"
