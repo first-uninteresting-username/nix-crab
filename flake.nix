@@ -20,26 +20,8 @@
       url = "https://github.com/ciscosweater/enter-the-wired/releases/download/latest/deps.tar.gz";
       flake = false;
     };
-    # Upstream CloudRedirect hook — the default. Reads the game list from
-    # config.yaml's AdditionalApps.
-    cloudredirect = {
-      type = "file";
-      url = "https://github.com/Selectively11/CloudRedirect/releases/latest/download/cloud_redirect.so";
-      flake = false;
-    };
-    # Optional hook for the LuaTools stack, opt-in via
-    # programs.nix-crab.cloudredirect.moon. Upstream's cloud_redirect.so only
-    # reads config.yaml's AdditionalApps, which slsteam-moon deprecated (games
-    # now live as <appid>.lua files in <Steam>/config/stplug-in/). This fork
-    # additionally scans stplug-in + luaappids.yaml. The .so is committed at
-    # the repo root.
     cloudredirect-moon = {
       url = "github:swwayps/cloudredirect-moon";
-      flake = false;
-    };
-    cloudredirect-cli = {
-      type = "file";
-      url = "https://github.com/Selectively11/h3adcr-b/releases/download/linux-test/cloud_redirect_cli";
       flake = false;
     };
     millennium.url = "github:SteamClientHomebrew/Millennium?dir=packages/nix";
@@ -87,9 +69,7 @@
 
   outputs = {
     accela,
-    cloudredirect,
     cloudredirect-moon,
-    cloudredirect-cli,
     home-manager,
     millennium,
     nix-flatpak,
@@ -101,7 +81,10 @@
     luatools-moon,
     steamidra,
     steamnetsock,
-  }: {
+  }: let
+    cloudredirect = "${cloudredirect-moon}/cloud_redirect.so";
+    cloudredirect-cli = "${cloudredirect-moon}/cloud_redirect_cli";
+  in {
     checks.x86_64-linux = import ./checks.nix {
       inherit self nixpkgs home-manager;
     };
