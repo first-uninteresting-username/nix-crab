@@ -25,7 +25,6 @@
       flake = false;
     };
     millennium.url = "github:SteamClientHomebrew/Millennium?dir=packages/nix";
-    nix-flatpak.url = "github:gmodena/nix-flatpak";
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
     sls-steam = {
       url = "github:AceSLS/SLSsteam";
@@ -72,7 +71,6 @@
     cloudredirect-moon,
     home-manager,
     millennium,
-    nix-flatpak,
     nixpkgs,
     self,
     sls-steam,
@@ -100,7 +98,7 @@
 
     homeModules.default = {
       imports = [
-        (import ./modules/home.nix {inherit sls-steam nix-flatpak steamnetsock cloudredirect cloudredirect-moon cloudredirect-cli;})
+        (import ./modules/home.nix {inherit sls-steam steamnetsock cloudredirect cloudredirect-moon cloudredirect-cli;})
         ./modules/millennium-addons.nix
         (import ./modules/luatools-moon.nix {inherit lumen luatools-moon;})
         (import ./modules/steamidra.nix {inherit steamidra;})

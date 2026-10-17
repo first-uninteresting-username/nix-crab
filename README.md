@@ -2,7 +2,7 @@
 
 Declarative [h3adcr-b](https://github.com/Deadboy666/h3adcr-b/)-equivalent for NixOS.
 Installs and wires up [SLSsteam](https://github.com/AceSLS/SLSsteam) (play unlocked/not-owned games),
-[CloudRedirect](https://github.com/Selectively11/CloudRedirect) (cloud saves for non-owned/"lua" games)
+[CloudRedirect](https://github.com/swwayps/cloudredirect-moon) (cloud saves for non-owned/"lua" games)
 and the optional [steamnetsock-patch](https://github.com/yesyes0649/steamnetsock-patch) (multiplayer fix),
 plus a client-downgrade tool — all from a single flake.
 
@@ -15,12 +15,12 @@ endpoint.
 
 - **SLSsteam** injected into the native Steam package via `LD_AUDIT` (`programs.steam` override) — no
   runtime patching of `steam.sh`.
-- **CloudRedirect** installed as a Flatpak (declaratively via `nix-flatpak`) and injected with
-  `LD_PRELOAD`.
+- **CloudRedirect Moon** hook and CLI from one pinned fork, injected with `LD_PRELOAD`.
+  Configure cloud providers in Lumen **Settings → Cloud Saves**.
 - **netsock** (steamnetsock-patch) placed at `~/.config/SLSsteam/tools/netsock/netsock.so` for use as a
   per-game launch option.
 - **CloudRedirect CLI** (`cloud_redirect_cli`) available on `PATH` and at
-  `~/.local/share/CloudRedirect/cloud_redirect_lib`.
+  `~/.local/share/CloudRedirect/cloud_redirect_cli`.
 - **SteaMidra (SFF)** (optional) — .NET 9 AppImage for managing Steam accounts, tokens and configuration.
 - **ACCELA** (optional) — Qt depot-downloader GUI from the Enter The Wired bundle, configured to hand
   its games to SLSsteam.
@@ -106,8 +106,7 @@ modules = [
 
 Both modules must be imported: the NixOS module injects SLSsteam/CloudRedirect into Steam, the home
 module provides the SLSsteam config (`~/.config/SLSsteam/config.yaml`), netsock, the CloudRedirect
-CLI and installs `org.cloudredirect.CloudRedirect` as a user Flatpak. Import both in one switch so
-they stay in sync.
+CLI. Import both in one switch so they stay in sync.
 
 ## Options
 
@@ -118,7 +117,7 @@ they stay in sync.
 | `programs.nix-crab.slssteam.enable`      | Enable SLSsteam injection into the native Steam package. Implies `programs.steam.enable = true`.           |
 | `programs.nix-crab.slssteam.extraEnv`    | Extra environment variables merged into the Steam override (used by CloudRedirect for `LD_PRELOAD`).       |
 | `programs.nix-crab.slssteam-moon.enable` | Switch injection to [slsteam-moon](https://github.com/swwayps/slsteam-moon) (SLSsteam fork with a Lua manifest importer) instead of upstream SLSsteam. Takes precedence if both are enabled; built from source, so expect a 32-bit compile. |
-| `programs.nix-crab.cloudredirect.enable` | Enable CloudRedirect: enables the Flatpak service and sets `LD_PRELOAD` to the pinned `cloud_redirect.so`. |
+| `programs.nix-crab.cloudredirect.enable` | Enable CloudRedirect: sets `LD_PRELOAD` to the pinned `cloud_redirect.so`. |
 | `programs.nix-crab.cloudredirect.moon.enable` | Use the [cloudredirect-moon](https://github.com/swwayps/cloudredirect-moon) hook (scans `stplug-in`/`luaappids.yaml`) instead of upstream CloudRedirect. Opt-in, for the LuaTools stack. |
 | `programs.nix-crab.millennium.enable`    | Replace `pkgs.steam` with `millennium-steam` via overlay. Combine with `slssteam.enable`.                   |
 | `programs.nix-crab.downgrade.enable`     | Add the `nix-crab-downgrade` script to `environment.systemPackages`.                                       |
@@ -134,7 +133,6 @@ does not declare (`MaxSchemaTries`, `FakeName`, `DisableUpdates`, …) — witho
 `slssteam.manageConfig = true`; by default the file is left to whoever else edits it. It also
 configures:
 
-- `services.flatpak` — remotes `flathub` + `cloudredirect`, package `org.cloudredirect.CloudRedirect`.
 - `home.file` — netsock and the CloudRedirect CLI.
 - `home.packages` — `cloud_redirect_cli` and `nix-crab-status`.
 
@@ -173,22 +171,13 @@ releases through the locked inputs. The Steam client updates itself on next laun
 > if you turn it on yourself, be aware it is meant for Steam Deck gamemode and can wrongly disable
 > SLSsteam on desktop. `nix-crab-status` prints the value in effect.
 
-## CloudRedirect app status
+## CloudRedirect cloud settings
 
-The app's "SLSsteam" row is a prerequisite check for the imperative h3adcr-b layout: it stats
-`~/.local/share/SLSsteam/SLSsteam.so`. Nix keeps SLSsteam in the store, so the home module links it
-to that path and grants the Flatpak `/nix/store:ro` (otherwise the symlink dangles inside the
-sandbox) — the app then shows **"SLSsteam: Installed"**.
-
-The CloudRedirect row works the same way: the app's deploy check stats
-`~/.local/share/CloudRedirect/cloud_redirect.so` and otherwise reports **"failed to deploy"**. The
-home module links that path to the pinned flake input — the same `.so` that
-`modules/cloudredirect.nix` puts in `LD_PRELOAD`, so there is only ever one library.
-
-What the app's own "deploy" would do beyond that — patching `steam.sh` — this flake does not need;
-injection comes from `LD_PRELOAD`. Verify it with `DoInit: SUCCESS` in
-`~/.config/CloudRedirect/cr_debug.log`. Don't press deploy in the app: the linked `.so` is
-read-only in the store, so the app cannot write over it.
+Use Lumen **Settings → Cloud Saves** to sign in to a cloud provider or choose a local folder.
+The standalone Flatpak companion and its remote are no longer installed.
+The home module provides `~/.local/share/CloudRedirect/cloud_redirect_cli` and the hook.
+The CLI package includes the matching hook beside its executable so provider operations can load it.
+Verify hook initialization with `DoInit: SUCCESS` in `~/.config/CloudRedirect/cr_debug.log`.
 
 CloudRedirect only syncs if `DisableCloud: no` is set in `~/.config/SLSsteam/config.yaml`. Careful
 with duplicate keys: SLSsteam's yaml-cpp lets the **last** occurrence win, and SteaMidra appends a
@@ -235,7 +224,7 @@ nix-crab-status
 ```
 
 Prints the Steam client version, SLSsteam config values, netsock presence, CloudRedirect status
-(Flatpak + CLI), whether client updates are blocked, the injection fork observed in a running
+(hook + CLI), whether client updates are blocked, the injection fork observed in a running
 Steam (`slsteam-moon` vs upstream SLSsteam) and the LuaTools/Lumen state (installed, plugin,
 running, CEF endpoint attached). The CloudRedirect `Hook:` line reports which `cloud_redirect.so`
 is wired up (upstream vs moon) by resolving the `~/.local/share` link — the same choice the
@@ -252,7 +241,7 @@ injection uses, so it shows what the game list scanner actually reads.
   "games": {"stplug_in_dir": "/home/you/.steam/steam/config/stplug-in",
             "lua_manifests": 3, "luaappids_yaml": false},
   "cloudredirect": {"enabled": true, "hook": "moon (LuaTools)",
-                    "cli_present": true, "flatpak_installed": true},
+                    "cli_present": true},
   "luatools": {"installed": true, "plugin_installed": true, "running": true, "cef_port": true}
 }
 ```
@@ -469,7 +458,7 @@ This repository was created and is maintained by a **13-year-old NixOS enthusias
 Project Credits:
 
 - **[SLSsteam](https://github.com/AceSLS/SLSsteam)** (by AceSLS) — for the incredible Steam injection capability.
-- **[CloudRedirect](https://github.com/Selectively11/CloudRedirect)** (by Selectively11) — for the reliable cloud save syncing.
+- **[CloudRedirect](https://github.com/swwayps/cloudredirect-moon)** (by Selectively11) — for the reliable cloud save syncing.
 - **[SteaMidra (SFF)](https://github.com/Midrags/SFF)** (by Midrags) — for the powerful configuration and account manager.
 - **[steamnetsock-patch](https://github.com/yesyes0649/steamnetsock-patch)** (by yesyes0649) — for the multiplayer fixes.
 - **[Millennium](https://github.com/SteamClientHomebrew/Millennium)** (by Steam Homebrew) — for the client themes and plugins, and for shipping its own Nix package.

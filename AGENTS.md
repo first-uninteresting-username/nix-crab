@@ -5,8 +5,8 @@ NixOS/home-manager flake that reproduces h3adcr-b (SLSsteam + CloudRedirect + op
 ## Architecture
 
 Hybrid flake with two independent module outputs in `flake.nix`:
-- `nixosModules.default` — imports `slssteam.nix` (Steam package override, `LD_AUDIT`), `cloudredirect.nix` (`services.flatpak.enable` + `LD_PRELOAD` via `slssteam.extraEnv`), `downgrade.nix`.
-- `homeModules.default` — imports `home.nix` (typed sls-steam config, netsock + CLI via `home.file`, CloudRedirect Flatpak via nix-flatpak, `nix-crab-status` with `--json` and LuaTools/moon/injection sections, `nix-crab-update`), `steamidra.nix`, `accela.nix`.
+- `nixosModules.default` — imports `slssteam.nix` (Steam package override, `LD_AUDIT`), `cloudredirect.nix` (`LD_PRELOAD` via `slssteam.extraEnv`), `downgrade.nix`.
+- `homeModules.default` — imports `home.nix` (typed sls-steam config, netsock + CLI via `home.file`, `nix-crab-status` with `--json` and LuaTools/moon/injection sections, `nix-crab-update`), `steamidra.nix`, `accela.nix`.
 
 Modules are partial applications: `flake.nix` threads flake inputs in via `(import ./modules/x.nix {inherit input;})`. When adding a new module, follow that pattern — do not use `inputs` in the module body.
 
@@ -14,7 +14,7 @@ Modules are partial applications: `flake.nix` threads flake inputs in via `(impo
 
 - **`services.sls-steam.config` uses the upstream typed sls-steam home module** (`sls-steam.homeModules.sls-steam`) and lets it generate `config.yaml` as-is — `DisableCloud: false`, YAML 1.2 booleans. There used to be a hand-written yes/no YAML renderer here plus a `lib.mkForce` on the `source` of `xdg.configFile."SLSsteam/config.yaml"`, because headcrab (`h3adcr-b.sh`) grepped the literal `DisableCloud: no`. That script is gone. Readers are `nix-crab-status` **and CloudRedirect's own `.so`** (`src/platform/linux/yaml_parser.h`) — both accept `no` and `false`, so YAML 1.2 is safe. Do not reintroduce the renderer — teach the reader both spellings instead. Both are **last-occurrence-wins**, which is what makes SteaMidra's appended flat key block dangerous (see README, "CloudRedirect app status"). Defaults are `lib.mkDefault`: `PlayNotOwnedGames` on, `DisableCloud` off, `SafeMode` off (SafeMode self-blocks on desktop).
 - **`programs.nix-crab.slssteam.manageConfig` defaults to `false`** — `config.yaml` is left unmanaged so tools like SteaMidra that edit the file keep their changes across home-manager switches. The typed module still injects a dead `source`/`text`, but the file's `enable = false` stops it from being written. Set `manageConfig = true` to have Nix write the file again.
-- **CloudRedirect hook and CLI come from `swwayps/cloudredirect-moon`.** The original Selectively11 repositories are unavailable. Both binaries come from the same locked fork input. Keep the existing `cloudredirect.moon.enable` options for compatibility.
+- **CloudRedirect hook and CLI come from `swwayps/cloudredirect-moon`.** The original Selectively11 repositories are unavailable. Both binaries come from the same locked fork input. Keep the existing `cloudredirect.moon.enable` options for compatibility. Use Lumen Settings → Cloud Saves for provider setup; do not reinstall the obsolete Flatpak companion.
 - **Two-module design by explicit user request.** The user rejected auto-wiring home-manager into the NixOS module and rejected integration/assertion modules (`homeModuleImported`, `nixosModuleImported`, a `programs.nix-crab.user` option). Do not reintroduce flags, assertions, or `home-manager.nixosModules.home-manager` wiring.
 - **Steam client follows updates by default.** `steam.cfg` is only written by the downgrade script (`if [ ! -f ... ]`), not by home.nix.
 - **netsock is never injected globally** — it's placed at `~/.config/SLSsteam/tools/netsock/netsock.so` for per-game launch option `LD_AUDIT=...netsock.so %command%`, never with anti-cheat.
