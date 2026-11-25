@@ -24,7 +24,10 @@
       url = "github:swwayps/cloudredirect-moon";
       flake = false;
     };
-    millennium.url = "github:SteamClientHomebrew/Millennium?dir=packages/nix";
+    millennium = {
+      url = "github:SteamClientHomebrew/Millennium?dir=packages/nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
     sls-steam = {
       url = "github:AceSLS/SLSsteam";

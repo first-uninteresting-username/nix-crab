@@ -4,6 +4,7 @@
 }: {
   config,
   lib,
+  pkgs,
   ...
 }: {
   options.programs.nix-crab.cloudredirect = {
@@ -17,10 +18,23 @@
     '';
   };
 
-  config = lib.mkIf config.programs.nix-crab.cloudredirect.enable {
-    programs.nix-crab.slssteam.extraEnv.LD_PRELOAD =
-      if config.programs.nix-crab.cloudredirect.moon.enable
+  config = let
+    cfg = config.programs.nix-crab;
+
+    # Stage the hook under the name the loader, the docs and
+    # `cloud_redirect --cli` all expect, so a rename in the source input
+    # cannot silently break LD_PRELOAD.
+    hook =
+      if cfg.cloudredirect.moon.enable
       then "${cloudredirect-moon}/cloud_redirect.so"
-      else "${cloudredirect}";
-  };
+      else cloudredirect;
+
+    hookStaged = pkgs.runCommand "cloud_redirect.so" {} ''
+      mkdir -p "$out"
+      cp ${hook} "$out/cloud_redirect.so"
+    '';
+  in
+    lib.mkIf cfg.cloudredirect.enable {
+      programs.nix-crab.slssteam.extraEnv.LD_PRELOAD = "${hookStaged}/cloud_redirect.so";
+    };
 }

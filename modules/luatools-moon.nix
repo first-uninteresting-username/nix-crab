@@ -182,10 +182,10 @@ in {
         # set); without it every plugin call fails with "unknown method".
         #
         # The LD_AUDIT/LD_PRELOAD unset has to happen INSIDE steam-run: those
-        # carry slsteam-moon's 32-bit hooks, and pkgs.steam's extraEnv lands in
-        # the FHS rootfs /etc/profile, which steam-run sources -- so unsetting
-        # them outside is a no-op and 64-bit Lumen plus every backend script it
-        # spawns gets a round of "wrong ELF class" from ld.so. LD_LIBRARY_PATH
+        # carry Steam's injected hooks, and pkgs.steam's extraEnv lands in the
+        # FHS rootfs /etc/profile, which steam-run sources -- so unsetting them
+        # outside is a no-op and Lumen plus every backend script it spawns would
+        # load SLSsteam and CloudRedirect. LD_LIBRARY_PATH
         # stays: inside the sandbox it is what makes the FHS libs resolvable.
         #
         # Do NOT run alejandra on this file: it re-indents the heredoc body and

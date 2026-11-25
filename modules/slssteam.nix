@@ -11,28 +11,26 @@
 
   upstream = sls-steam.packages.${pkgs.stdenv.hostPlatform.system}.sls-steam;
 
-  # slsteam-moon is a fork of SLSsteam that produces the same two artefacts
-  # (SLSsteam.so + library-inject.so) plus a native Lua manifest importer. It
-  # ships no flake, so it is built from source with the same 32-bit toolchain
-  # upstream uses in its own nix-modules/default.nix.
-  slsteamMoon = pkgs.pkgsi686Linux.stdenv.mkDerivation {
+  # slsteam-moon is a fork of SLSsteam with a native Lua manifest importer.
+  # It ships no flake, so it is built from source. Like upstream, it now
+  # targets the 64-bit (steamrt64) Steam client: a single x86-64 SLSsteam.so
+  # loaded through LD_AUDIT, with no separate library-inject.so.
+  slsteamMoon = pkgs.stdenv.mkDerivation {
     pname = "slsteam-moon";
     version = "0.0.0";
     src = slsteam-moon;
-    # utils.hpp uses fixed-width integers before utils.cpp includes cstdint.
-    # GCC 15 no longer supplies those declarations through other headers.
+    # embed-config.sh generates src/config_default.hpp during the build.
     postPatch = ''
-      substituteInPlace src/utils.hpp \
-        --replace-fail '#pragma once' '#pragma once
-      #include <cstdint>'
+      patchShebangs embed-config.sh
     '';
     nativeBuildInputs = with pkgs; [pkg-config];
-    buildInputs = with pkgs.pkgsi686Linux; [openssl curl];
-    # pattern-refresh is a native host helper we don't need; only the two
-    # Steam-loaded i386 objects are injected.
+    # LuaJIT headers come from the system; the static lib is vendored in lib/.
+    buildInputs = with pkgs; [openssl curl luajit];
+    # pattern-refresh is a pre-launch host helper we don't wire up; only the
+    # Steam-loaded audit object is built.
     buildPhase = ''
       runHook preBuild
-      make -j"$NIX_BUILD_CORES" bin/SLSsteam.so bin/library-inject.so
+      make -j"$NIX_BUILD_CORES" bin/SLSsteam.so
       runHook postBuild
     '';
     # -O3 -flto over ~100 translation units; the Makefile only marks `clean`
@@ -41,7 +39,6 @@
     installPhase = ''
       mkdir -p "$out"
       cp bin/SLSsteam.so "$out/"
-      cp bin/library-inject.so "$out/"
     '';
     meta = {
       description = "SLSsteam fork with a Lua manifest importer (slsteam-moon)";
@@ -51,12 +48,26 @@
     };
   };
 
-  # Both forks ship the same two artefacts under the same names, so the choice
-  # is one store path, not two branches of wiring.
-  sls =
+  # Both forks ship the same artefact under the same name, so the choice is
+  # one store path, not two branches of wiring.
+  slsRaw =
     if cfg.slssteam-moon.enable
     then slsteamMoon
     else upstream;
+
+  # A RUNPATH onto the build's own glibc/libstdc++ makes the loader pull a
+  # second libc into Steam's FHS processes, which already have one loaded;
+  # the two disagree on the stack canary and processes die with "stack
+  # smashing detected". Dropping it makes the loader reuse the loaded libc;
+  # the other NEEDED libraries come from the FHS (extraPkgs below).
+  sls = pkgs.runCommand "SLSsteam-audit" {
+    nativeBuildInputs = [pkgs.patchelf];
+  } ''
+    mkdir -p "$out"
+    cp ${slsRaw}/SLSsteam.so "$out/"
+    chmod u+w "$out"/*.so
+    patchelf --remove-rpath "$out/SLSsteam.so"
+  '';
 in {
   options.programs.nix-crab = {
     slssteam.enable = lib.mkEnableOption "SLSsteam (upstream) injection into Steam";
@@ -80,9 +91,23 @@ in {
       package = pkgs.steam.override {
         extraEnv =
           {
-            LD_AUDIT = "${sls}/library-inject.so:${sls}/SLSsteam.so";
+            LD_AUDIT = "${sls}/SLSsteam.so";
           }
           // cfg.slssteam.extraEnv;
+        # The FHS wrapper never binds /sys: bubblewrap starts with a fresh
+        # mount namespace where /sys does not exist, and the auto-mount loop
+        # cannot bind a mountpoint onto itself. Mesa then cannot resolve
+        # /sys/dev/char/226:* or /sys/class/drm, reports "failed to retrieve
+        # device information", refuses to load i915/iris and falls back to
+        # llvmpipe. Steam's 32-bit vgui2 gets no GLX visual and fatal-asserts
+        # with "glXChooseVisual failed". A read-only bind is all it needs.
+        #
+        extraBwrapArgs = ["--ro-bind /sys /sys"];
+        # Upstream SLSsteam.so links libcurl and libdbus. With its RUNPATH
+        # stripped they must be in the FHS /usr/lib, which pkgs.steam's
+        # default package list does not cover. Both are 64-bit only, like
+        # the steamrt64 client that loads the hook.
+        extraPkgs = p: [p.curl p.dbus];
       };
     };
   };
