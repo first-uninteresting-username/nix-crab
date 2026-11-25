@@ -30,6 +30,10 @@ jobs:
           ref: ${{ github.event.repository.default_branch }}
       - name: Install Nix
         uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa # v23
+        with:
+          # Some inputs (Midrags/SFF/tags) are GitHub API URLs; unauthenticated
+          # fetches share the runner IP's 60/hour limit and fail with 403.
+          extra-conf: access-tokens = github.com=${{ secrets.GITHUB_TOKEN }}
       - name: Update flake.lock
         run: nix flake update --refresh
       - name: Check updated flake
