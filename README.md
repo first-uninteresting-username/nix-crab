@@ -116,7 +116,7 @@ CLI. Import both in one switch so they stay in sync.
 | ---------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
 | `programs.nix-crab.slssteam.enable`      | Enable SLSsteam injection into the native Steam package. Implies `programs.steam.enable = true`.           |
 | `programs.nix-crab.slssteam.extraEnv`    | Extra environment variables merged into the Steam override (used by CloudRedirect for `LD_PRELOAD`).       |
-| `programs.nix-crab.slssteam-moon.enable` | Switch injection to [slsteam-moon](https://github.com/swwayps/slsteam-moon) (SLSsteam fork with a Lua manifest importer) instead of upstream SLSsteam. Takes precedence if both are enabled; built from source, so expect a 32-bit compile. |
+| `programs.nix-crab.slssteam-moon.enable` | Switch injection to [slsteam-moon](https://github.com/swwayps/slsteam-moon) (SLSsteam fork with a Lua manifest importer) instead of upstream SLSsteam. Takes precedence if both are enabled; built from source, so expect a 64-bit C++ compile. |
 | `programs.nix-crab.cloudredirect.enable` | Enable CloudRedirect: sets `LD_PRELOAD` to the pinned `cloud_redirect.so`. |
 | `programs.nix-crab.cloudredirect.moon.enable` | Use the [cloudredirect-moon](https://github.com/swwayps/cloudredirect-moon) hook (scans `stplug-in`/`luaappids.yaml`) instead of upstream CloudRedirect. Opt-in, for the LuaTools stack. |
 | `programs.nix-crab.millennium.enable`    | Replace `pkgs.steam` with `millennium-steam` via overlay. Combine with `slssteam.enable`.                   |
